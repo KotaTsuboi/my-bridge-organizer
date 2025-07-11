@@ -19,7 +19,6 @@ import java.util.*;
 public class Main {
     static final DateTimeFormatter JP_DATE = DateTimeFormatter.ofPattern("yyyy年MM月dd日");
     static final DateTimeFormatter STD_DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-    static final String IN_EXCEL_NAME = "mybridge_output.xlsx";
     static final String[] HEADERS = {
             "会社名", "名前", "部署", "役職", "電子メール", "郵便番号", "会社住所",
             "会社電話", "会社FAX", "携帯電話", "名刺交換日", "グループ", "メモ"
@@ -31,7 +30,13 @@ public class Main {
     static final String MARK = "Data from myBridge";
 
     public static void main(String[] args) throws Exception {
-        FileInputStream file = new FileInputStream(IN_EXCEL_NAME);
+        if (args.length != 1) {
+            throw new IllegalArgumentException("The length of arguments must be 1");
+        }
+
+        String in_excel_name = args[0];
+
+        FileInputStream file = new FileInputStream(in_excel_name);
         Workbook workbook = new XSSFWorkbook(file);
         Sheet sheet = workbook.getSheetAt(0);
 
@@ -147,7 +152,7 @@ public class Main {
 
         while (rs.next()) {
             String company = rs.getString(1);
-            exportCompanyExcel(conn, company);
+            exportCompanyExcel(conn, company, in_excel_name);
         }
 
         conn.close();
@@ -207,7 +212,7 @@ public class Main {
     }
 
     // 会社ごとにExcel出力
-    static void exportCompanyExcel(Connection conn, String company) throws Exception {
+    static void exportCompanyExcel(Connection conn, String company, String in_excel_name) throws Exception {
         String sql = "SELECT * FROM contacts WHERE company_name = ?";
         PreparedStatement ps = conn.prepareStatement(sql);
         ps.setString(1, company);
@@ -216,7 +221,7 @@ public class Main {
         Workbook outBook = new XSSFWorkbook();
         Sheet sheet = outBook.createSheet("Contacts");
 
-        try (FileInputStream inFile = new FileInputStream(IN_EXCEL_NAME)) {
+        try (FileInputStream inFile = new FileInputStream(in_excel_name)) {
             Workbook inBook = new XSSFWorkbook(inFile);
             Sheet originalSheet = inBook.getSheetAt(0);
             for (int i = 0; i < HEADERS.length; i++) {
