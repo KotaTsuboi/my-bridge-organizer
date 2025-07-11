@@ -405,6 +405,8 @@ public class Main {
             );
 
             pb.inheritIO().start().waitFor();
+
+            Thread.sleep(500);
         }
 
     }
