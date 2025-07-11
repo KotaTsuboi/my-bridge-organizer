@@ -3,6 +3,7 @@ package jp.co.itec_c.my_bridge_organizer;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFRichTextString;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import java.io.*;
@@ -69,6 +70,10 @@ public class Main {
             for (int i = 0; i < 13; i++) {
                 Cell cell = row.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK);
                 values[i] = getCellStringValue(cell);
+
+                if (i == 0) {
+                    values[i] = values[i].replace("株式会社", "(株)");
+                }
             }
 
             String company = values[0];
@@ -145,6 +150,7 @@ public class Main {
 
         // 出力フォルダ作成
         Files.createDirectories(Paths.get("output"));
+        Files.createDirectories(Paths.get("card_book"));
 
         // 会社名一覧取得
         Statement st = conn.createStatement();
@@ -153,6 +159,7 @@ public class Main {
         while (rs.next()) {
             String company = rs.getString(1);
             exportCompanyExcel(conn, company, in_excel_name);
+            exportCardBook(conn, company);
         }
 
         conn.close();
@@ -262,6 +269,86 @@ public class Main {
         outBook.close();
     }
 
+
+    static void exportCardBook(Connection conn, String company) throws IOException, SQLException {
+        String sql = "SELECT * FROM contacts WHERE company_name = ?";
+        PreparedStatement ps = conn.prepareStatement(sql);
+        ps.setString(1, company);
+        ResultSet rs = ps.executeQuery();
+
+        Workbook wb = new XSSFWorkbook();
+        Sheet sheet = wb.createSheet("Contacts");
+
+        // スタイル作成（テキスト折り返し用）
+        CellStyle style = wb.createCellStyle();
+        style.setWrapText(true);
+
+        // フォント（太字用）
+        Font boldFont = wb.createFont();
+        boldFont.setBold(true);
+
+        int rowNum = 0;
+        while (rs.next()) {
+            Row row = sheet.createRow(rowNum++);
+
+            Cell cell = row.createCell(0);
+            cell.setCellStyle(style);
+            StringBuilder sb = new StringBuilder();
+
+            int boldStart = 0;
+            int boldEnd = 0;
+
+            for (int i = 0; i < HEADERS.length; i++) {
+                String value = rs.getString(i + 1);
+
+                // 日付をyyyy年MM月dd日に戻す
+                if (i == 10) {
+                    try {
+                        LocalDate d = LocalDate.parse(value);
+                        value = d.format(JP_DATE);
+                    } catch (Exception ignored) {
+                    }
+                }
+
+                if (i == 0) {
+                    boldStart = value.length();
+                }
+                if (i == 1) {
+                    boldEnd = boldStart + value.length() + 1;
+                }
+                if (i == 7 || i == 8 || i == 9) {
+                    value = HEADERS[i] + ": " + value;
+                }
+
+                if (!value.equals("")) {
+                    sb.append(value).append("\n");
+                }
+            }
+
+            // RichTextStringで一部を太字に
+            RichTextString richText = new XSSFRichTextString(sb.toString());
+            richText.applyFont(boldStart, boldEnd, boldFont);
+
+            cell.setCellValue(richText);
+
+            // 行の高さを自動で調整するなら以下を検討（ただし適切な高さの見積もり必要）
+            row.setHeightInPoints(250);
+        }
+
+        // 幅調整（例: A列を広めに）
+        sheet.setColumnWidth(0, 80 * 256);
+
+        // 保存
+        String safeName = company.replaceAll("[\\\\/:*?\"<>|]", "_");
+        try (FileOutputStream out = new FileOutputStream("card_book/" + safeName + ".xlsx")) {
+            wb.write(out);
+        }
+        wb.close();
+
+        rs.close();
+        ps.close();
+    }
+
     static String convertExcelToMarkdown(File file) throws IOException {
         Workbook wb = new XSSFWorkbook(new FileInputStream(file));
         Sheet sheet = wb.getSheetAt(0);
@@ -329,7 +416,8 @@ public class Main {
 
             // JSONを解析
             ObjectMapper mapper = new ObjectMapper();
-            List<Map<String, Object>> comments = mapper.readValue(json.toString(), new TypeReference<>() { });
+            List<Map<String, Object>> comments = mapper.readValue(json.toString(), new TypeReference<>() {
+            });
 
             if (comments.size() == 0) {
                 break;
