@@ -354,11 +354,10 @@ public class Main {
                         "/repos/" + REPOSITORY + "/issues/comments/" + commentId
                 );
                 deleteCmd.inheritIO().start().waitFor();
+
+                Thread.sleep(500);
             }
-
-            Thread.sleep(500);
         }
-
     }
 
     static void upload() throws IOException, InterruptedException {
