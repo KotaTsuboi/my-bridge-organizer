@@ -355,6 +355,8 @@ public class Main {
                 );
                 deleteCmd.inheritIO().start().waitFor();
             }
+
+            Thread.sleep(500);
         }
 
     }
