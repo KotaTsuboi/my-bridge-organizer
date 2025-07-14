@@ -165,8 +165,8 @@ public class Main {
         conn.close();
         System.out.println("✅ 取り込み＆会社別Excel出力完了");
 
-        deleteComments();
-        upload();
+//        deleteComments();
+//        upload();
     }
 
     private static String getCellStringValue(Cell cell) {
