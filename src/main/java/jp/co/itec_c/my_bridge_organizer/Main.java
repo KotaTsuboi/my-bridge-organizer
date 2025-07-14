@@ -287,56 +287,15 @@ public class Main {
         Font boldFont = wb.createFont();
         boldFont.setBold(true);
 
-        int rowNum = 0;
+        int rowIndex = 0;
         while (rs.next()) {
-            Row row = sheet.createRow(rowNum++);
-
-            Cell cell = row.createCell(0);
-            cell.setCellStyle(style);
-            StringBuilder sb = new StringBuilder();
-
-            int boldStart = 0;
-            int boldEnd = 0;
-
-            for (int i = 0; i < HEADERS.length; i++) {
-                String value = rs.getString(i + 1);
-
-                // 日付をyyyy年MM月dd日に戻す
-                if (i == 10) {
-                    try {
-                        LocalDate d = LocalDate.parse(value);
-                        value = d.format(JP_DATE);
-                    } catch (Exception ignored) {
-                    }
-                }
-
-                if (i == 0) {
-                    boldStart = value.length();
-                }
-                if (i == 1) {
-                    boldEnd = boldStart + value.length() + 1;
-                }
-                if (i == 7 || i == 8 || i == 9) {
-                    value = HEADERS[i] + ": " + value;
-                }
-
-                if (!value.equals("")) {
-                    sb.append(value).append("\n");
-                }
-            }
-
-            // RichTextStringで一部を太字に
-            RichTextString richText = new XSSFRichTextString(sb.toString());
-            richText.applyFont(boldStart, boldEnd, boldFont);
-
-            cell.setCellValue(richText);
-
-            // 行の高さを自動で調整するなら以下を検討（ただし適切な高さの見積もり必要）
-            row.setHeightInPoints(250);
+            rowIndex = writeOneCard(sheet, wb, rs, rowIndex);
+            rowIndex++;
         }
 
         // 幅調整（例: A列を広めに）
-        sheet.setColumnWidth(0, 80 * 256);
+        sheet.setColumnWidth(0, 12 * 256);
+        sheet.setColumnWidth(1, 80 * 256);
 
         // 保存
         String safeName = company.replaceAll("[\\\\/:*?\"<>|]", "_");
@@ -347,6 +306,48 @@ public class Main {
 
         rs.close();
         ps.close();
+    }
+
+    private static int writeOneCard(Sheet sheet, Workbook wb, ResultSet rs, int startRow) throws SQLException {
+        Font boldFont = wb.createFont();
+        boldFont.setBold(true);
+
+        CellStyle labelStyle = wb.createCellStyle();
+        labelStyle.setAlignment(HorizontalAlignment.LEFT);
+
+        for (int i = 0; i < HEADERS.length; i++) {
+            Row row = sheet.createRow(startRow + i);
+
+            // ラベル列（A列）
+            Cell labelCell = row.createCell(0);
+            labelCell.setCellValue(HEADERS[i]);
+            labelCell.setCellStyle(labelStyle);
+
+            // データ列（B列）
+            String value = rs.getString(i + 1);
+
+            // 日付をyyyy年MM月dd日に戻す
+            if (i == 10) {
+                try {
+                    LocalDate d = LocalDate.parse(value);
+                    value = d.format(JP_DATE);
+                } catch (Exception ignored) {
+                }
+            }
+
+            Cell valueCell = row.createCell(1);
+
+            if (i == 1) {
+                // 名前は太字で設定
+                RichTextString richText = new XSSFRichTextString(value);
+                richText.applyFont(boldFont);
+                valueCell.setCellValue(richText);
+            } else {
+                valueCell.setCellValue(value);
+            }
+        }
+
+        return startRow + HEADERS.length;
     }
 
     static String convertExcelToMarkdown(File file) throws IOException {
